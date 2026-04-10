@@ -4,7 +4,7 @@ import { X, Flame, Trophy, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Habit, HabitLog } from '../types';
 import { ConsistencyGraph } from './ConsistencyGraph';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, differenceInDays, parseISO, startOfDay, subDays } from 'date-fns';
 
 interface Props {
   habit: Habit;
@@ -48,14 +48,14 @@ export function HabitDetailModal({ habit, onClose }: Props) {
     let tempStreak = 0;
 
     const today = format(new Date(), 'yyyy-MM-dd');
-    const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
     // Current streak
     if (sortedDates[0] === today || sortedDates[0] === yesterday) {
       current = 1;
       for (let i = 0; i < sortedDates.length - 1; i++) {
-        const d1 = parseISO(sortedDates[i]);
-        const d2 = parseISO(sortedDates[i+1]);
+        const d1 = startOfDay(parseISO(sortedDates[i]));
+        const d2 = startOfDay(parseISO(sortedDates[i+1]));
         if (differenceInDays(d1, d2) === 1) {
           current++;
         } else {
@@ -68,8 +68,8 @@ export function HabitDetailModal({ habit, onClose }: Props) {
     tempStreak = 1;
     longest = 1;
     for (let i = 0; i < sortedDates.length - 1; i++) {
-      const d1 = parseISO(sortedDates[i]);
-      const d2 = parseISO(sortedDates[i+1]);
+      const d1 = startOfDay(parseISO(sortedDates[i]));
+      const d2 = startOfDay(parseISO(sortedDates[i+1]));
       if (differenceInDays(d1, d2) === 1) {
         tempStreak++;
       } else {
@@ -77,6 +77,7 @@ export function HabitDetailModal({ habit, onClose }: Props) {
         tempStreak = 1;
       }
     }
+
     longest = Math.max(longest, tempStreak);
 
     setStats({
