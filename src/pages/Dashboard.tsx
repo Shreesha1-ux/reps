@@ -2,19 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Habit, HabitLog } from '../types';
 import { format } from 'date-fns';
 import { CreateHabitModal } from '../components/CreateHabitModal';
 import { LogHabitModal } from '../components/LogHabitModal';
+import { HabitCard } from '../components/HabitCard';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { HabitDetailModal } from '../components/HabitDetailModal';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [todayLogs, setTodayLogs] = useState<HabitLog[]>([]);
   const [streak, setStreak] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [logModalHabit, setLogModalHabit] = useState<Habit | null>(null);
+  const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
+  const [habitForDetails, setHabitForDetails] = useState<Habit | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -39,28 +47,42 @@ export function Dashboard() {
     fetchData();
   }, [user]);
 
-  const handleHabitClick = (habit: Habit) => {
-    const isLogged = todayLogs.some(log => log.habit_id === habit.id);
-    if (!isLogged) {
-      setLogModalHabit(habit);
-    }
-  };
-
   const onHabitCreated = () => {
     fetchData();
     setIsCreateModalOpen(false);
+    showToast("Habit created! Time to get to work 🚀");
   };
 
   const onHabitLogged = () => {
     fetchData();
     setLogModalHabit(null);
+    showToast("Habit completed! Keep the streak going 🔥");
+  };
+
+  const handleDeleteHabit = async () => {
+    if (!habitToDelete) return;
+    setIsDeleting(true);
+    
+    const { error } = await supabase
+      .from('habits')
+      .delete()
+      .eq('id', habitToDelete.id);
+
+    if (error) {
+      alert("Failed to delete habit: " + error.message);
+    } else {
+      setHabits(prev => prev.filter(h => h.id !== habitToDelete.id));
+      showToast("Habit deleted successfully");
+    }
+    
+    setIsDeleting(false);
+    setHabitToDelete(null);
   };
 
   if (loading) {
     return <div className="flex justify-center py-12"><div className="animate-pulse text-gray-400">Loading...</div></div>;
   }
 
-  // Calculate day number since first habit
   const firstHabitDate = habits.length > 0 ? new Date(habits[0].created_at) : new Date();
   const dayDiff = Math.floor((new Date().getTime() - firstHabitDate.getTime()) / (1000 * 3600 * 24)) + 1;
 
@@ -94,32 +116,14 @@ export function Dashboard() {
               habits.map(habit => {
                 const isLogged = todayLogs.some(log => log.habit_id === habit.id);
                 return (
-                  <button
+                  <HabitCard
                     key={habit.id}
-                    onClick={() => handleHabitClick(habit)}
-                    disabled={isLogged}
-                    className={cn(
-                      "flex items-center justify-between p-4 rounded-xl border text-left transition-all min-h-[64px]",
-                      isLogged 
-                        ? "bg-gray-50 border-gray-100 opacity-60 cursor-default" 
-                        : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm cursor-pointer"
-                    )}
-                  >
-                    <div>
-                      <h3 className={cn("font-medium", isLogged ? "text-gray-500 line-through" : "text-gray-900")}>
-                        {habit.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">
-                        {habit.type === 'proof' ? 'Proof Required' : 'Time Based'}
-                      </p>
-                    </div>
-                    <div className={cn(
-                      "w-6 h-6 rounded-full border flex items-center justify-center transition-colors",
-                      isLogged ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300 text-transparent"
-                    )}>
-                      <Check size={14} />
-                    </div>
-                  </button>
+                    habit={habit}
+                    isLogged={isLogged}
+                    onLog={() => setLogModalHabit(habit)}
+                    onDelete={() => setHabitToDelete(habit)}
+                    onShowDetails={() => setHabitForDetails(habit)}
+                  />
                 );
               })
             )}
@@ -170,6 +174,22 @@ export function Dashboard() {
 
       {logModalHabit && (
         <LogHabitModal habit={logModalHabit} onClose={() => setLogModalHabit(null)} onSuccess={onHabitLogged} />
+      )}
+
+      <ConfirmDialog
+        isOpen={!!habitToDelete}
+        title="Delete Habit"
+        message={`Are you sure you want to delete "${habitToDelete?.name}"? This will also remove all its history.`}
+        onConfirm={handleDeleteHabit}
+        onCancel={() => setHabitToDelete(null)}
+        isLoading={isDeleting}
+      />
+
+      {habitForDetails && (
+        <HabitDetailModal
+          habit={habitForDetails}
+          onClose={() => setHabitForDetails(null)}
+        />
       )}
     </div>
   );

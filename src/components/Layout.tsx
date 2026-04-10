@@ -98,12 +98,18 @@ export function Layout() {
             <LogOut size={20} />
             <span>Logout</span>
           </button>
+          <div className="mt-4 px-3 text-[10px] text-gray-300 font-medium tracking-widest uppercase text-center">
+            made by shreesha
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64 p-4 md:p-8 max-w-5xl mx-auto w-full">
         <Outlet />
+        <div className="md:hidden mt-12 mb-4 text-[10px] text-gray-300 font-medium tracking-widest uppercase text-center">
+          made by shreesha
+        </div>
       </main>
     </div>
   );
